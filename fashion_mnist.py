@@ -1,17 +1,19 @@
 from __future__ import print_function
+
 import argparse
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
 from torchvision import datasets, transforms
 
+from torch_cbc.activations import swish
 from torch_cbc.cbc_model import CBCModel
-from torch_cbc.losses import MarginLoss
 from torch_cbc.constraints import EuclideanNormalization
 from torch_cbc.layers import ConstrainedConv2d
-from torch_cbc.activations import swish
-
+from torch_cbc.losses import MarginLoss
 from utils import visualize_components
 
 
@@ -84,12 +86,12 @@ def test(args, model, device, test_loader, lossfunction):
 
     test_loss /= len(test_loader.dataset)
 
-    print("\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n".
-          format(  # noqa
-              test_loss, correct, len(test_loader.dataset),
-              100. * correct / len(test_loader.dataset)))
+    test_acc = 100. * correct / len(test_loader.dataset)
+    print(
+        "\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n".format(
+            test_loss, correct, len(test_loader.dataset), test_acc))
 
-    return test_loss
+    return test_loss, test_acc
 
 
 def main():
@@ -193,14 +195,25 @@ def main():
 
     lossfunction = MarginLoss(margin=args.margin)
 
+    writer = SummaryWriter(log_dir="./logs")
+
     print("Starting training")
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader, optimizer, lossfunction,
               epoch)  # noqa
-        test_loss = test(args, model, device, test_loader, lossfunction)
+        test_loss, test_acc = test(args, model, device, test_loader, lossfunction)
         scheduler.step(test_loss)
         visualize_components(epoch, model, "./visualization")
 
+        # Tensorboard Logging
+        writer.add_scalar("Loss/test", test_loss, epoch)
+        writer.add_scalar("Accuracy/test", test_acc, epoch)
+        img_tensor = model.components
+        writer.add_images("FashionMNIST Components",
+                          img_tensor,
+                          global_step=epoch,
+                          dataformats="NCHW")
+    writer.close()
     if (args.save_model):
         torch.save(model.state_dict(), "fashion_mnist_cnn.pt")
 
