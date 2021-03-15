@@ -96,7 +96,7 @@ def test(args, model, device, test_loader, lossfunction):
 
 def main():
     # Training settings
-    parser = argparse.ArgumentParser(description="PyTorch MNIST Example")
+    parser = argparse.ArgumentParser(description="PyTorch Fashion-MNIST Example")
     parser.add_argument("--batch-size",
                         type=int,
                         default=128,
@@ -146,6 +146,21 @@ def main():
                         action="store_true",
                         default=False,
                         help="For Saving the current Model")
+    parser.add_argument("--cc",
+                        type=int,
+                        default=1,
+                        metavar="CC",
+                        help="Component Channels (default: 1)")
+    parser.add_argument("--ch",
+                        type=int,
+                        default=28,
+                        metavar="CH",
+                        help="Component Height in pixels (default: 28)")
+    parser.add_argument("--cw",
+                        type=int,
+                        default=28,
+                        metavar="CW",
+                        help="Component Width in pixels (default: 28)")
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
 
@@ -179,10 +194,11 @@ def main():
                                               **kwargs)
 
     backbone = Backbone()
+    component_shape = (args.cc, args.ch, args.cw)  # full-sized components (1, 28, 28) by default
     model = CBCModel(backbone,
                      n_classes=10,
                      n_components=args.n_components,
-                     component_shape=(1, 28, 28)).to(device)
+                     component_shape=component_shape).to(device)
 
     print(model)
 
